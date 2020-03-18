@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "TimeTract",
+    "slug": "timetract",
+    "privacy": "public",
+    "sdkVersion": "36.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "timetract",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.leonzalion.timetract",
+      "buildNumber": "1.0.0"
+    },
+    "android": {
+      "package": "com.leonzalion.timetract",
+      "versionCode": 1
+    },
+    "description": "A competitive way to stay accountable for using your time productively.",
+    "githubUrl": "https://github.com/leonzalion/TimeTract"
+  }
+}
