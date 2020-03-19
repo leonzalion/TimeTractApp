@@ -33,6 +33,9 @@
       "package": "com.leonzalion.timetract",
       "versionCode": 1
     },
+    "androidStatusBar": {
+      "backgroundColor": "#FFFFFF"
+    },
     "description": "A competitive way to stay accountable for using your time productively.",
     "githubUrl": "https://github.com/leonzalion/TimeTractApp"
   }
