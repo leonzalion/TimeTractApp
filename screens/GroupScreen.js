@@ -1,53 +1,46 @@
 import React, {useState, useContext, useEffect} from 'react';
-import {View, RefreshControl, StyleSheet, ActivityIndicator, FlatList} from 'react-native';
-import UserContext from '../contexts/User';
-import {SERVER_URL} from '../constants/Server';
-import fetchHeaders from '../controllers/fetchHeaders';
+import {View, RefreshControl, StyleSheet, ActivityIndicator, FlatList, Text} from 'react-native';
 import {ListItem} from 'react-native-elements';
 import formatTime from "../controllers/formatTime";
 import Colors from "../constants/Colors";
 import useDidUpdate from "../hooks/useDidUpdate";
+import gql from 'graphql-tag';
+import {useLazyQuery} from "@apollo/react-hooks";
+import Loading from "../components/Loading";
 
-export default function GroupScreen({ navigation }) {
-  const {user} = useContext(UserContext);
-  const [group, setGroup] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  async function onRefresh() {
-    await getGroup();
+const GROUP_QUERY = gql`
+  query($id: ID!) {
+    group(id: $id) {
+      name
+      description
+      members {
+        id
+        username
+        rescueTimeData {
+          productiveTime
+        }
+      }
+    } 
   }
+`;
+
+export default function GroupScreen({ navigation, route }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [getGroup, {loading, data}] = useLazyQuery(GROUP_QUERY, {
+    variables: {id: route.params.groupId}
+  });
 
   useDidUpdate(() => {
-    navigation.setOptions({title: group.name});
-  }, [group]);
-
-  async function getGroup() {
-    setRefreshing(true);
-    const response = await fetch(`${SERVER_URL}/groups/${user.groupId}`, {
-      method: 'get',
-      headers: await fetchHeaders()
-    });
     setRefreshing(false);
-    const result = await response.json();
-    if (response.status !== 200) {
-      console.warn(result);
-      alert("Something went wrong. Error object: " + JSON.stringify(result));
-      return;
-    }
-    result.members.sort(function(a, b) {
-      let a_time, b_time;
-      a_time = a.rescuetime.access_token ? a.rescuetime.total_productive_time : -1;
-      b_time = b.rescuetime.access_token ? b.rescuetime.total_productive_time : -1;
-      return b_time - a_time;
+    data.group.members.sort(function (a, b) {
+      let aTime, bTime;
+      aTime = a.rescueTimeData ? a.rescueTimeData.productiveTime : -1;
+      bTime = b.rescueTimeData ? b.rescueTimeData.productiveTime : -1;
+      return bTime - aTime;
     });
-    setGroup(result);
-  }
-
-  useEffect(() => {
-    (async () => {
-      await getGroup();
-    })();
-  }, []);
+    navigation.setOptions({title: data.group.name});
+  }, [data]);
+  useEffect(getGroup, []);
 
   function renderMember(member, index) {
     let colorStyle = {};
@@ -57,8 +50,8 @@ export default function GroupScreen({ navigation }) {
       case 2: colorStyle = {color: '#9c5221'}; break;
     }
     let avatar;
-    if (member.avatar_url) {
-      avatar = {source: {uri: member.avatar_url}};
+    if (member.avatarUrl) {
+      avatar = {source: {uri: member.avatarUrl}};
     } else {
       avatar = {title: member.username[0].toUpperCase()}
     }
@@ -68,8 +61,8 @@ export default function GroupScreen({ navigation }) {
         leftAvatar={avatar}
         title={member.username}
         rightTitle={
-          member.rescuetime.access_token ?
-            formatTime(member.rescuetime.total_productive_time) :
+          member.rescueTimeData ?
+            formatTime(member.rescueTimeData.productiveTime) :
             "---"
         }
         rightTitleStyle={styles.timeText}
@@ -83,7 +76,9 @@ export default function GroupScreen({ navigation }) {
     );
   }
 
-  if (!group) {
+  if (!data || loading) return <Loading />;
+
+  if (!data.group) {
     return (
       <View
         style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}
@@ -97,11 +92,14 @@ export default function GroupScreen({ navigation }) {
     return (
       <View style={{flex: 1}}>
         <FlatList
-          data={group.members}
+          data={data.group.members}
           renderItem={({item, index}) => renderMember(item, index)}
-          keyExtractor={member => member._id}
+          keyExtractor={member => member.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => {
+              setRefreshing(true);
+              getGroup();
+            }} />
           }
         />
       </View>

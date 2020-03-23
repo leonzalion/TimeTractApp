@@ -3,17 +3,27 @@ import {StyleSheet, View, Text} from 'react-native';
 import {Input, Button} from 'react-native-elements';
 import useDidUpdate from '../hooks/useDidUpdate';
 import UserContext from '../contexts/User';
-import {SERVER_URL} from '../constants/Server';
-import fetchHeaders from '../controllers/fetchHeaders';
-import patchUser from '../controllers/user/patch';
+import gql from 'graphql-tag';
+import {useMutation} from '@apollo/react-hooks';
 
-export default function LoginScreen({ navigation }) {
+const CREATE_GROUP_MUTATION = gql`
+  mutation($input: CreateGroupInput!) {
+    createGroup(input: $input) {
+      id
+      name
+    }
+  }
+`;
+
+export default function CreateGroupScreen({ navigation }) {
   const [isError, setError] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   const [groupName, setGroupName] = useState('');
   const [groupNameErrorMessage, setGroupNameErrorMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [createGroup] = useMutation(CREATE_GROUP_MUTATION);
 
   const { user, setUser } = useContext(UserContext);
 
@@ -40,30 +50,20 @@ export default function LoginScreen({ navigation }) {
     />
   );
 
-  async function createGroup() {
+  async function create() {
     setIsLoading(true);
-    const response = await fetch(`${SERVER_URL}/groups`, {
-      method: 'post',
-      headers: await fetchHeaders(),
-      body: JSON.stringify({
-        name: groupName,
-        members: [user._id]
-      })
+    const {data: {createGroup: {id, name}}} = await createGroup({
+      variables: {
+        input: {
+          name: groupName,
+          description: "Temporary description."
+        }
+      }
     });
     setIsLoading(false);
-    const result = await response.json();
-    if (response.status !== 200) {
-      setErrorMessage(result.message);
-      console.warn(result);
-      alert("Something went wrong. Error object: " + JSON.stringify(result));
-      return;
-    }
-
-    await patchUser({
-      setUser,
-      patches: {groupId: result._id}
-    });
-    navigation.replace('Group');
+    const userGroups  = [...user.groups, {id, name}];
+    setUser({...user, groups: userGroups});
+    navigation.replace('Group', {groupId: id});
   }
 
   return (
@@ -73,7 +73,7 @@ export default function LoginScreen({ navigation }) {
         <Button
           title="Create Group!"
           buttonStyle={styles.submitButton}
-          onPress={createGroup}
+          onPress={create}
           loading={isLoading}
           disabled={isError}
           titleStyle={{width: '100%'}}

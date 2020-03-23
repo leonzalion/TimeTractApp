@@ -2,7 +2,6 @@ import React from 'react';
 import {Avatar} from 'react-native-elements';
 
 export default function UserAvatar({user, ...props}) {
-
   const avatar = (
     <Avatar
       rounded={true}
@@ -11,10 +10,10 @@ export default function UserAvatar({user, ...props}) {
     />
   );
 
-  if (user.avatar_url) {
+  if (user.avatarUrl) {
     return (
       React.cloneElement(avatar, {
-        source: {uri: user.avatar_url}
+        source: {uri: user.avatarUrl}
       })
     );
   } else {

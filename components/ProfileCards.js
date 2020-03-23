@@ -1,30 +1,43 @@
+import React, {useEffect, useState} from "react";
 import {Platform, StyleSheet, Text, View} from "react-native";
 import {Card, ListItem} from "react-native-elements";
 import Colors from "../constants/Colors";
-import React from "react";
 import formatTime from '../controllers/formatTime';
 import {categoryIcons} from "../constants/CategoryIcons";
 import RankColors from '../constants/RankColors';
+import gql from 'graphql-tag';
+import {useLazyQuery} from "@apollo/react-hooks";
+import Loading from '../components/Loading';
+import {SITE_FRAGMENT} from '../fragments/user';
+import useDidUpdate from "../hooks/useDidUpdate";
 
-const [
-  ,
-  time_spent,
-  ,
-  activity,
-  category,
-  productivity
-] = [0, 1, 2, 3, 4, 5];
+const RESCUETIME_DATA_QUERY = gql`
+  query($id: ID) {
+    user(id: $id) {
+      rescueTimeData {
+        productiveTime
+        distractingTime
+        topSites {
+          name
+          timeSpent
+          category
+          productivity
+        }
+      }
+    }
+  }
+`;
 
 const renderSite = (site, key) => {
   return <ListItem
     key={key}
-    title={site[activity]}
-    subtitle={formatTime(site[time_spent])}
+    title={site.name}
+    subtitle={formatTime(site.timeSpent)}
     leftIcon={
       React.cloneElement(
-        categoryIcons[site[category]],
+        categoryIcons[site.category],
         {
-          color: RankColors[site[productivity]],
+          color: RankColors[site.productivity],
           iconStyle: {width: 20},
           size: 20,
         }
@@ -42,7 +55,22 @@ const renderSite = (site, key) => {
 };
 
 export default function ProfileCards({user}) {
-  const {top_sites, total_distracted_time, total_productive_time} = user.rescuetime;
+  const [loaded, setLoaded] = useState(false);
+  const [rescueTimeData, setRescueTimeData] = useState(null);
+  const [getRescueTimeData, {loading, error, data}] = useLazyQuery(RESCUETIME_DATA_QUERY, {
+    onCompleted: (data) => {
+      setRescueTimeData(data.user.rescueTimeData);
+      setLoaded(true);
+    }
+  });
+
+  useEffect(() => {
+    getRescueTimeData({variables: {id: user.id}});
+  }, []);
+
+  if (!loaded) return <Loading />;
+  if (!rescueTimeData) return null;
+  const {topSites, productiveTime, distractingTime} = rescueTimeData;
 
   return (
     <View style={styles.cardsContainer}>
@@ -63,7 +91,7 @@ export default function ProfileCards({user}) {
           }}
         >
           <Text style={styles.timeText}>
-            {formatTime(total_productive_time)}
+            {formatTime(productiveTime)}
           </Text>
         </Card>
         <Card
@@ -82,7 +110,7 @@ export default function ProfileCards({user}) {
           }}
         >
           <Text style={styles.timeText}>
-            {formatTime(total_distracted_time)}
+            {formatTime(distractingTime)}
           </Text>
         </Card>
       </View>
@@ -96,7 +124,8 @@ export default function ProfileCards({user}) {
         }}
       >
         {
-          top_sites.map((site, index) =>
+          console.log(topSites) ||
+          topSites.map((site, index) =>
             renderSite(site, index))
         }
       </Card>

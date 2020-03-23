@@ -19,7 +19,7 @@ export default function ProfileOverview({user, activeUser, ...props}) {
         }
         <Text style={styles.userName}>@{user.username}</Text>
         {props.children}
-        {user.rescuetime.access_token ? cards : null}
+        {user.rescueTimeData ? cards : null}
       </ScrollView>
     </SafeAreaView>
   );

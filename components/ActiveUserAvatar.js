@@ -3,14 +3,28 @@ import UserContext from '../contexts/User';
 import * as ImagePicker from 'expo-image-picker';
 import {useActionSheet} from '@expo/react-native-action-sheet';
 import * as ImageManipulator from 'expo-image-manipulator';
-import fetchHeaders from '../controllers/fetchHeaders';
-import patchUser from '../controllers/user/patch';
-import {SERVER_URL} from '../constants/Server';
 import UserAvatar from "./UserAvatar";
+import {useMutation} from '@apollo/react-hooks';
+import {ReactNativeFile} from 'apollo-upload-client';
+import gql from 'graphql-tag';
+
+const UPDATE_AVATAR_MUTATION  = gql`
+  mutation ($input: UpdateUserAvatarInput!) {
+    updateUserAvatar(input: $input)
+  } 
+`;
+
+const DELETE_AVATAR_MUTATION = gql`
+  mutation {
+    deleteUserAvatar
+  }
+`;
 
 export default function ActiveUserAvatar() {
   const {user, setUser} = useContext(UserContext);
   const {showActionSheetWithOptions} = useActionSheet();
+  const [setAvatar] = useMutation(UPDATE_AVATAR_MUTATION);
+  const [deleteAvatar] = useMutation(DELETE_AVATAR_MUTATION);
 
   async function editImage() {
     const options = [
@@ -47,46 +61,28 @@ export default function ActiveUserAvatar() {
         else if (buttonIndex === 1) imageResult = await ImagePicker.launchCameraAsync(imagePickerOptions);
 
         if (!imageResult.cancelled) {
-          const {uri} = imageResult;
-
+          const {uri: imageUri} = imageResult;
           const actions = [
             {
               resize: {
-                width: 250,
-                height: 250
+                width: 100,
+                height: 100
               }
             }
           ];
 
-          const saveOptions = {base64: true};
-          const {base64} = await ImageManipulator.manipulateAsync(uri, actions, saveOptions);
-
-          const response = await fetch(`${SERVER_URL}/users/avatar`, {
-            method: 'post',
-            headers: await fetchHeaders(),
-            body: JSON.stringify({
-            avatarBase64: base64
-            })
+          const {uri} = await ImageManipulator.manipulateAsync(imageUri, actions);
+          const image = new ReactNativeFile({
+            uri,
+            name: 'avatar.jpg',
+            type: 'image/jpeg'
           });
-          const result = await response.json();
-
-          if (response.status !== 200) {
-            console.warn(result);
-            alert('Failed to upload avatar. Reason:\n' + result.message);
-            return;
-          }
-
-          const {secure_url} = result;
-          await patchUser({
-            setUser,
-            patches: {avatar_url: secure_url}
-          });
+          const {data, error} = await setAvatar({variables: {input: {image}}});
+          setUser({...user, avatarUrl: data.updateUserAvatar})
         }
       } else if (buttonIndex === 2) {
-        await patchUser({
-          setUser,
-          patches: {avatar_url: ''}
-        });
+        const {data} = await deleteAvatar();
+        setUser({...user, avatarUrl: data.deleteUserAvatar});
       }
     });
   }

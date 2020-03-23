@@ -3,12 +3,39 @@ import { StyleSheet, View, Text } from 'react-native';
 import { Input, Button } from 'react-native-elements';
 import useDidUpdate from '../hooks/useDidUpdate';
 import UserContext from '../contexts/User';
-import loginUser from '../controllers/user/login';
 import * as SecureStore from "expo-secure-store";
-import fetchHeaders from "../controllers/fetchHeaders";
-import {SERVER_URL} from '../constants/Server';
+import {useMutation} from "@apollo/react-hooks";
+import gql from "graphql-tag";
+import {USER_FRAGMENT} from '../fragments/user';
 
-export default function LoginScreen({ navigation }) {
+const LOGIN_MUTATION = gql`
+  mutation LoginMutation($input: LoginInput!) {
+    login(input: $input) {
+      user {
+        ...user
+      }
+      token
+    }
+  }
+  ${USER_FRAGMENT}
+`;
+
+const REGISTER_MUTATION = gql`
+  mutation RegisterMutation($input: RegisterInput!) {
+    register(input: $input) {
+      user {
+        ...user
+      }
+      token
+    }
+  }
+  ${USER_FRAGMENT}
+`;
+
+export default function EntryScreen({ navigation }) {
+  const [login] = useMutation(LOGIN_MUTATION);
+  const [register] = useMutation(REGISTER_MUTATION);
+
   const [isError, setError] = useState(true);
   const [isLogin, setLogin] = useState(true);
   const [isLoading, setLoading] = useState(false);
@@ -25,79 +52,51 @@ export default function LoginScreen({ navigation }) {
 
   const {setUser} = useContext(UserContext);
 
-  async function registerUser(username, password) {
-    const response = await fetch(`${SERVER_URL}/users`, {
-      method: 'POST',
-      headers: await fetchHeaders(),
-      body: JSON.stringify({username, password})
-    });
+  function checkUsername() {if (!username) return 'Username cannot be empty.'}
+  function checkPassword() {if (!password) return 'Please enter a password.'}
+  function checkError() {setError(usernameError || passwordError)}
+  function toggleLogin() {setLogin(!isLogin)}
 
-    if (response.status === 200) {
-      await SecureStore.setItemAsync('username', username);
-      await SecureStore.setItemAsync('password', password);
-    }
-
-    return response;
-  }
-
-  const checkUsername = () => {
-    if (!username) return 'Username cannot be empty.';
-  };
-
-  const checkPassword = () => {
-    if (!password) return 'Please enter a password.';
-  };
-
-  const checkError = () => {
-    setError(usernameError || passwordError);
-  };
-
-  const toggleLogin = () => {
-    setLogin(!isLogin);
-  };
-
-  const resetErrors = () => {
+  function resetErrors() {
     setUsernameError(!!checkUsername());
     setPasswordError(!!checkPassword());
     setUsernameErrorMessage('');
     setPasswordErrorMessage('');
-  };
+  }
 
-  const checkUsernameError = () => {
+  function checkUsernameError() {
     const message = checkUsername();
     setUsernameError(!!message);
     setUsernameErrorMessage(message);
-  };
+  }
 
-  const checkPasswordError = () => {
+  function checkPasswordError() {
     const message = checkPassword();
     setPasswordError(!!message);
     setPasswordErrorMessage(message);
-  };
+  }
 
   useDidUpdate(checkUsernameError, [username]);
   useDidUpdate(checkPasswordError, [password]);
   useEffect(checkError, [usernameError, passwordError]);
-  useEffect(setLoginErrorMessage.bind(null, ''), [username, password]);
+  useEffect(() => setLoginErrorMessage(''), [username, password]);
   useEffect(resetErrors, [isLogin]);
 
-  const login = async () => {
-    // when logging in, just make sure username and password are filled in
-    if (username && password) {
-      setLoading(true);
-      const response = isLogin ?
-        await loginUser(username, password, true) :
-        await registerUser(username, password);
-      setLoading(false);
-      const result = await response.json();
-      if (response.status !== 200) {
-        setLoginErrorMessage(result.message);
-      } else {
-        setUser(result);
-        navigation.replace('Account');
-      }
-    }
-  };
+  async function enterUser() {
+    setLoading(true);
+    const variables = {input: {username, password}};
+    const {error, data} = isLogin ?
+      await login({variables}) :
+      await register({variables});
+    setLoading(false);
+
+    if (error) return console.log(`Failed to ${isLogin ? "login" : "register"}.`);
+
+    const {token, user} = isLogin ? data.login : data.register;
+    await SecureStore.setItemAsync('jwt', token);
+    setUser(user);
+    navigation.replace('Account');
+  }
 
   const buttonText = isLogin ? 'Login' : 'Register';
   const switchButtonText = isLogin ?
@@ -145,7 +144,7 @@ export default function LoginScreen({ navigation }) {
         <Button
           title={buttonText}
           buttonStyle={styles.submitButton}
-          onPress={login}
+          onPress={enterUser}
           loading={isLoading}
           disabled={isError}
           titleStyle={{width: '100%'}}

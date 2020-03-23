@@ -3,65 +3,65 @@ import { FlatList, StyleSheet, View, Text } from 'react-native';
 import { ListItem } from 'react-native-elements';
 import logoutUser from '../controllers/user/logout';
 import UserContext from '../contexts/User';
-import patchUser from '../controllers/user/patch';
-import fetchHeaders from "../controllers/fetchHeaders";
-import connectRescueTime from '../controllers/rescuetime/connect';
+import useRescueTime from '../hooks/useRescueTime';
 import Colors from "../constants/Colors";
 import {createStackNavigator} from "@react-navigation/stack";
 import {SERVER_URL} from "../constants/Server";
+import gql from 'graphql-tag';
+import {useMutation} from '@apollo/react-hooks';
+
+const DISCONNECT_RESCUETIME_MUTATION = gql`
+  mutation {
+    disconnectUserFromRescueTime
+  }
+`;
+
+const LEAVE_GROUP_MUTATION = gql`
+  mutation($input: LeaveGroupInput!) {
+    leaveGroup(input: $input)
+  }
+`;
 
 const Stack = createStackNavigator();
 
 export default function SettingsScreen({ navigation }) {
   const {user, setUser} = useContext(UserContext);
+  const connectRescueTime = useRescueTime();
+  const [disconnectRescueTime] = useMutation(DISCONNECT_RESCUETIME_MUTATION);
+  const [leaveGroup] = useMutation(LEAVE_GROUP_MUTATION);
 
   const list = [
     {
-      hidden: !user.rescuetime.access_token,
+      hidden: !user.accessToken,
       title: 'Disconnect RescueTime',
       titleStyle: styles.destructive,
       chevron: false,
       bottomDivider: true,
       onPress: async () => {
-        await patchUser({
-          setUser,
-          patches: {
-            rescuetime: {
-              access_token: ''
-            }
-          }
-        });
+        const result = await disconnectRescueTime();
+        setUser({...user, accessToken: result.disconnectUserFromRescueTime});
         alert('Successfully disconnected from RescueTime.');
       }
     },
     {
-      hidden: !!user.rescuetime.access_token,
+      hidden: !!user.accessToken,
       title: 'Connect RescueTime',
       titleStyle: {color: Colors.productive},
       chevron: false,
       bottomDivider: true,
       onPress: async () => {
-        await connectRescueTime({user, setUser});
+        await connectRescueTime();
       }
     },
     {
-      hidden: !user.groupId,
+      hidden: !user.groups.length,
       title: 'Leave Group',
       titleStyle: styles.destructive,
       chevron: false,
       bottomDivider: true,
       onPress: async () => {
-        const response = await fetch(`${SERVER_URL}/groups/${user.groupId}/leave`, {
-          method: 'post',
-          headers: await fetchHeaders()
-        });
-        const result = await response.json();
-        if (response.status !== 200) {
-          alert("Something went wrong. Error object: " + JSON.stringify(result));
-          console.warn(result);
-          return;
-        }
-        setUser({...user, ...result});
+        const result = await leaveGroup({variables: {input: {groupId: user.groups[0].id}}});
+        setUser({...user, groups: result.leaveGroup});
         alert('Successfully left group.');
       }
     },

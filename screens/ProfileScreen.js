@@ -1,60 +1,63 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Button } from 'react-native-elements';
-import connectRescueTime from '../controllers/rescuetime/connect';
+import useRescueTime from '../hooks/useRescueTime';
 import UserContext from '../contexts/User';
 import ProfileOverview from '../components/ProfileOverview';
 import {createStackNavigator} from "@react-navigation/stack";
-import {SERVER_URL} from "../constants/Server";
-import fetchHeaders from "../controllers/fetchHeaders";
 import {RefreshControl} from "react-native";
+import gql from 'graphql-tag';
+import {useLazyQuery} from '@apollo/react-hooks';
+import useDidUpdate from "../hooks/useDidUpdate";
+
+const QUERY_RESCUETIME_DATA = gql`
+  query {
+    user {
+      rescueTimeData {
+        productiveTime
+        distractingTime
+        topSites {
+          name
+          category
+          productivity
+          timeSpent
+        }
+      }
+    }
+  }
+`;
 
 const Stack = createStackNavigator();
 
 export default function ProfileScreen() {
-  const { user, setUser } = useContext(UserContext);
+  const {user, setUser} = useContext(UserContext);
+  const [getRescueTimeData, {data}] = useLazyQuery(QUERY_RESCUETIME_DATA);
+  const connectRescueTime = useRescueTime();
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await getData();
-    setRefreshing(false);
-  }, [refreshing]);
-
-  async function getData() {
-    if (user._id) {
-      (async function () {
-        const response = await fetch(`${SERVER_URL}/users/rtdata`, {
-          method: 'get',
-          headers: await fetchHeaders()
-        });
-
-        const result = await response.json();
-        if (response.status !== 200) {
-          console.warn(result);
-          alert("Something went wrong. Error object: " + JSON.stringify(result));
-          return;
-        }
-
-        if (result.last_retrieved !==
-          user.rescuetime.last_retrieved) {
-          setUser({...user, rescuetime: result});
-        }
-      })();
+  function getData() {
+    if (user.accessToken) {
+      getRescueTimeData();
+      if (data) {
+        console.log(data.user.rescueTimeData);
+        setUser({...user, rescueTimeData: data.user.rescueTimeData});
+      }
     }
   }
 
-  useEffect( () => {
-    if (user.rescuetime.access_token) {
-      (async () => await getData())();
-    }
-  }, [user.rescuetime.access_token]);
+  useDidUpdate(getData, [user.accessToken]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    getData();
+    setRefreshing(false);
+  }, [refreshing]);
 
   const connectRescueTimeButton = (
     <Button
       title={"Connect with RescueTime API"}
       onPress={async () => {
-        await connectRescueTime({user, setUser});
+        await connectRescueTime();
       }}
       type={"clear"}
     /> 
@@ -69,7 +72,7 @@ export default function ProfileScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {user.rescuetime.access_token ? null : connectRescueTimeButton}
+        {user.accessToken ? null : connectRescueTimeButton}
       </ProfileOverview>
     );
   }, [user]);

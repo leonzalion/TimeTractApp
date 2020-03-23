@@ -1,55 +1,50 @@
 import React, {useState, useContext, useEffect} from 'react';
 import {SearchBar, Icon, ListItem} from 'react-native-elements';
-import {View, FlatList} from 'react-native';
-import {SERVER_URL} from "../constants/Server";
-import fetchHeaders from '../controllers/fetchHeaders';
+import {Text, View, FlatList} from 'react-native';
 import UserContext from "../contexts/User";
+import gql from 'graphql-tag';
+import {useQuery, useMutation} from "@apollo/react-hooks";
+import Loading from "../components/Loading";
 
-export default function GroupScreen({ navigation }) {
+const GROUP_QUERY = gql`
+  query($filter: String) {
+    groups(filter: $filter) {
+      name
+      description
+      id
+    }
+  }
+`;
+
+const JOIN_GROUP_MUTATION = gql`
+  mutation($input: JoinGroupInput!) {
+    joinGroup(input: $input) {
+      id
+      name
+    }
+  }
+`;
+
+function GroupList(props) {
+  const navigation = props.navigation;
   const {user, setUser} = useContext(UserContext);
-  const [searchValue, setSearchValue] = useState('');
-  const [groups, setGroups] = useState([]);
-
-  async function search(text) {
-    const response = await fetch(`${SERVER_URL}/groups?search=${text}`, {
-      method: 'get',
-      headers: await fetchHeaders()
-    });
-    const result = await response.json();
-    if (response.status !== 200) {
-      console.warn(result);
-      alert("Something went wrong. Error object: " + JSON.stringify(result));
-      return;
+  const [joinGroup] = useMutation(JOIN_GROUP_MUTATION);
+  const {loading, error, data} = useQuery(GROUP_QUERY, {
+    variables: {
+      filter: props.searchValue
     }
-    setGroups(result);
-  }
+  });
 
-  useEffect(() => {
-    (async () => {
-      await search('');
-    })();
-  }, []);
-
-  async function joinGroup(group) {
-    const id = group._id;
-    const response = await fetch(`${SERVER_URL}/groups/${id}/join`, {
-      method: 'post',
-      headers: await fetchHeaders()
+  async function join(groupId) {
+    console.log(groupId);
+    const {data} = await joinGroup({
+      variables: {input: {groupId}}
     });
-    const result = await response.json();
-    if (response.status !== 200) {
-      alert("Something went wrong. Error object: " + JSON.stringify(result));
-      console.warn(result);
-      return;
-    }
-    setUser({...user, ...result});
-    navigation.replace('Group');
-  }
-
-  function memberCountStr(num) {
-    let str = num + ' member';
-    if (num !== 1) str += 's';
-    return str;
+    console.log(data);
+    const {joinGroup: group} = data;
+    const groups = [...user.groups, {id: group.id, name: group.name}];
+    setUser({...user, groups});
+    navigation.navigate('Group', {groupId: group.id});
   }
 
   function renderGroup(group, index) {
@@ -58,13 +53,26 @@ export default function GroupScreen({ navigation }) {
         key={index}
         title={group.name}
         titleStyle={{fontWeight: 'bold'}}
-        subtitle={memberCountStr(group.num_members)}
+        subtitle={group.description}
         chevron={true}
         bottomDivider={true}
-        onPress={() => joinGroup(group)}
+        onPress={() => join(group.id)}
       />
     );
   }
+
+  if (loading) return <Loading />;
+  return (
+    <FlatList
+      data={data.groups}
+      renderItem={({item, index}) => renderGroup(item, index)}
+      keyExtractor={(item, index) => '' + index}
+    />
+  );
+}
+
+export default function GroupScreen({ navigation }) {
+  const [searchValue, setSearchValue] = useState('');
 
   return (
     <View style={{flex: 1}}>
@@ -79,7 +87,6 @@ export default function GroupScreen({ navigation }) {
           value={searchValue}
           onChangeText={async (text) => {
             setSearchValue(text);
-            await search(text);
           }}
           platform="default"
           lightTheme={true}
@@ -104,11 +111,7 @@ export default function GroupScreen({ navigation }) {
           }
         />
       </View>
-      <FlatList
-        data={groups}
-        renderItem={({item, index}) => renderGroup(item, index)}
-        keyExtractor={(item, index) => ''+index}
-      />
+      <GroupList searchValue={searchValue} navigation={navigation}/>
     </View>
   );
 }
