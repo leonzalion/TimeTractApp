@@ -1,17 +1,31 @@
-import React from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, Text} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text} from 'react-native';
 import ProfileCards from './ProfileCards';
 import UserAvatar from './UserAvatar';
 import ActiveUserAvatar from './ActiveUserAvatar';
+import useRescueTimeData from "../hooks/useRescueTimeData";
 
 export default function ProfileOverview({user, activeUser, ...props}) {
-  const cards = <ProfileCards user={user} />;
+  const [refreshing, setRefreshing] = useState(false);
+  const [rescueTimeData, setRescueTimeData] = useState(null);
+  const getUserRescueTimeData = useRescueTimeData();
+
+  async function getData() {
+    setRefreshing(true);
+    setRescueTimeData(await getUserRescueTimeData(user));
+    setRefreshing(false);
+  }
+  useEffect(() => {
+    (async() => getData())();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.contentContainer}
-        refreshControl={props.refreshControl}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={getData} />
+        }
       >
         {activeUser ?
           <ActiveUserAvatar /> :
@@ -19,7 +33,10 @@ export default function ProfileOverview({user, activeUser, ...props}) {
         }
         <Text style={styles.userName}>@{user.username}</Text>
         {props.children}
-        {user.rescueTimeData ? cards : null}
+        {activeUser && user.accessToken || !activeUser && user.rescueTimeData ?
+          <ProfileCards
+            rescueTimeData={rescueTimeData}
+          /> : null}
       </ScrollView>
     </SafeAreaView>
   );

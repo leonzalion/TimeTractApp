@@ -38,6 +38,7 @@ export default function useRescueTime() {
       }
 
       const rt_result = await connectRescueTime({variables: {input: {authCode}}});
+      console.log(rt_result);
       setUser({...user, accessToken: rt_result.data.connectUserToRescueTime});
     }
   };

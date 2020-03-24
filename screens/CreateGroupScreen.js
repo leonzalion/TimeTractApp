@@ -10,7 +10,6 @@ const CREATE_GROUP_MUTATION = gql`
   mutation($input: CreateGroupInput!) {
     createGroup(input: $input) {
       id
-      name
     }
   }
 `;
@@ -23,9 +22,11 @@ export default function CreateGroupScreen({ navigation }) {
   const [groupNameErrorMessage, setGroupNameErrorMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [blurb, setBlurb] = useState('');
+
   const [createGroup] = useMutation(CREATE_GROUP_MUTATION);
 
-  const { user, setUser } = useContext(UserContext);
+  const {user, setUser} = useContext(UserContext);
 
   function checkGroupName() {
     setGroupNameErrorMessage(groupName ? '' : 'Group name cannot be empty.');
@@ -50,26 +51,47 @@ export default function CreateGroupScreen({ navigation }) {
     />
   );
 
+  const blurbForm = (
+    <Input
+      placeholder="(Short description of group)"
+      label="Blurb"
+      leftIcon={{type: 'material-icons', name: 'description'}}
+      leftIconContainerStyle={styles.inputLeftIcon}
+      containerStyle={styles.inputContainer}
+      onChangeText={text => setBlurb(text)}
+      value={blurb}
+    />
+  );
+
   async function create() {
     setIsLoading(true);
-    const {data: {createGroup: {id, name}}} = await createGroup({
+    const {data: {createGroup: group}} = await createGroup({
       variables: {
         input: {
           name: groupName,
-          description: "Temporary description."
+          description: "",
+          blurb
         }
       }
     });
     setIsLoading(false);
-    const userGroups  = [...user.groups, {id, name}];
-    setUser({...user, groups: userGroups});
-    navigation.replace('Group', {groupId: id});
+    const groups = [
+      ...user.groups, {
+        id: group.id,
+        name: groupName,
+        blurb
+      }
+    ];
+
+    setUser({...user, groups});
+    navigation.replace('Group', {groupId: group.id});
   }
 
   return (
     <View style={styles.screen}>
       <View style={styles.container}>
         {groupNameForm}
+        {blurbForm}
         <Button
           title="Create Group!"
           buttonStyle={styles.submitButton}

@@ -6,7 +6,6 @@ import UserContext from '../contexts/User';
 import useRescueTime from '../hooks/useRescueTime';
 import Colors from "../constants/Colors";
 import {createStackNavigator} from "@react-navigation/stack";
-import {SERVER_URL} from "../constants/Server";
 import gql from 'graphql-tag';
 import {useMutation} from '@apollo/react-hooks';
 
@@ -18,7 +17,9 @@ const DISCONNECT_RESCUETIME_MUTATION = gql`
 
 const LEAVE_GROUP_MUTATION = gql`
   mutation($input: LeaveGroupInput!) {
-    leaveGroup(input: $input)
+    leaveGroup(input: $input) {
+      id
+    }
   }
 `;
 
@@ -39,7 +40,7 @@ export default function SettingsScreen({ navigation }) {
       bottomDivider: true,
       onPress: async () => {
         const result = await disconnectRescueTime();
-        setUser({...user, accessToken: result.disconnectUserFromRescueTime});
+        setUser({...user, accessToken: '', rescueTimeData: undefined});
         alert('Successfully disconnected from RescueTime.');
       }
     },
@@ -60,8 +61,11 @@ export default function SettingsScreen({ navigation }) {
       chevron: false,
       bottomDivider: true,
       onPress: async () => {
-        const result = await leaveGroup({variables: {input: {groupId: user.groups[0].id}}});
-        setUser({...user, groups: result.leaveGroup});
+        console.log(user.groups[0].id);
+        const {data} = await leaveGroup({variables: {input: {groupId: user.groups[0].id}}});
+        const groups = user.groups.filter(group => group.id !== data.leaveGroup.id);
+        setUser({...user, groups});
+        navigation.replace('Account');
         alert('Successfully left group.');
       }
     },

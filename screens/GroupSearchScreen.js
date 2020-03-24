@@ -9,9 +9,9 @@ import Loading from "../components/Loading";
 const GROUP_QUERY = gql`
   query($filter: String) {
     groups(filter: $filter) {
-      name
-      description
       id
+      name
+      blurb
     }
   }
 `;
@@ -19,8 +19,8 @@ const GROUP_QUERY = gql`
 const JOIN_GROUP_MUTATION = gql`
   mutation($input: JoinGroupInput!) {
     joinGroup(input: $input) {
-      id
       name
+      blurb
     }
   }
 `;
@@ -42,9 +42,15 @@ function GroupList(props) {
     });
     console.log(data);
     const {joinGroup: group} = data;
-    const groups = [...user.groups, {id: group.id, name: group.name}];
+    const groups = [...user.groups,
+      {
+        id: groupId,
+        name: group.name,
+        blurb: group.blurb
+      }
+    ];
     setUser({...user, groups});
-    navigation.navigate('Group', {groupId: group.id});
+    navigation.replace('Group', {groupId});
   }
 
   function renderGroup(group, index) {
@@ -53,7 +59,7 @@ function GroupList(props) {
         key={index}
         title={group.name}
         titleStyle={{fontWeight: 'bold'}}
-        subtitle={group.description}
+        subtitle={group.blurb}
         chevron={true}
         bottomDivider={true}
         onPress={() => join(group.id)}

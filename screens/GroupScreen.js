@@ -5,15 +5,16 @@ import formatTime from "../controllers/formatTime";
 import Colors from "../constants/Colors";
 import useDidUpdate from "../hooks/useDidUpdate";
 import gql from 'graphql-tag';
-import {useLazyQuery} from "@apollo/react-hooks";
+import {useQuery} from "@apollo/react-hooks";
 import Loading from "../components/Loading";
 
 const GROUP_QUERY = gql`
   query($id: ID!) {
     group(id: $id) {
       name
+      blurb
       description
-      members {
+      members(first: 5) {
         id
         username
         rescueTimeData {
@@ -26,12 +27,15 @@ const GROUP_QUERY = gql`
 
 export default function GroupScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
-  const [getGroup, {loading, data}] = useLazyQuery(GROUP_QUERY, {
-    variables: {id: route.params.groupId}
+  const {refetch, loading, data} = useQuery(GROUP_QUERY, {
+    variables: {id: route.params.groupId},
   });
 
+  useEffect(() => {
+    if (route.params.leaving) navigation.replace('GroupSearch');
+  }, []);
+
   useDidUpdate(() => {
-    setRefreshing(false);
     data.group.members.sort(function (a, b) {
       let aTime, bTime;
       aTime = a.rescueTimeData ? a.rescueTimeData.productiveTime : -1;
@@ -40,7 +44,12 @@ export default function GroupScreen({ navigation, route }) {
     });
     navigation.setOptions({title: data.group.name});
   }, [data]);
-  useEffect(getGroup, []);
+
+  async function refetchGroup() {
+    setRefreshing(true);
+    await refetch({id: route.params.groupId});
+    setRefreshing(false);
+  }
 
   function renderMember(member, index) {
     let colorStyle = {};
@@ -96,10 +105,7 @@ export default function GroupScreen({ navigation, route }) {
           renderItem={({item, index}) => renderMember(item, index)}
           keyExtractor={member => member.id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => {
-              setRefreshing(true);
-              getGroup();
-            }} />
+            <RefreshControl refreshing={refreshing} onRefresh={refetchGroup} />  
           }
         />
       </View>
