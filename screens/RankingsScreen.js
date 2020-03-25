@@ -15,13 +15,11 @@ export default function RankingsScreen() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      await loadApp();
-    })();
-  },[user.groupId]);
+    (async () => await loadApp())();
+  },[user.groups[0]]);
 
   async function loadApp() {
-    setInitialScreen(user.groupId ? 'Group' : 'GroupSearch');
+    setInitialScreen(user.groups[0] ? 'Group' : 'GroupSearch');
   }
 
   const loadingScreen = (

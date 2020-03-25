@@ -7,6 +7,7 @@ import useDidUpdate from "../hooks/useDidUpdate";
 import gql from 'graphql-tag';
 import {useQuery} from "@apollo/react-hooks";
 import Loading from "../components/Loading";
+import UserContext from "../contexts/User";
 
 const GROUP_QUERY = gql`
   query($id: ID!) {
@@ -26,14 +27,11 @@ const GROUP_QUERY = gql`
 `;
 
 export default function GroupScreen({ navigation, route }) {
+  const {user} = useContext(UserContext);
   const [refreshing, setRefreshing] = useState(false);
   const {refetch, loading, data} = useQuery(GROUP_QUERY, {
-    variables: {id: route.params.groupId},
+    variables: {id: user.groups[0].id},
   });
-
-  useEffect(() => {
-    if (route.params.leaving) navigation.replace('GroupSearch');
-  }, []);
 
   useDidUpdate(() => {
     data.group.members.sort(function (a, b) {
@@ -47,7 +45,7 @@ export default function GroupScreen({ navigation, route }) {
 
   async function refetchGroup() {
     setRefreshing(true);
-    await refetch({id: route.params.groupId});
+    await refetch({id: user.groups[0].id});
     setRefreshing(false);
   }
 
