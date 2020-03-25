@@ -12,7 +12,7 @@ import {InMemoryCache} from 'apollo-cache-inmemory';
 import {createUploadLink} from 'apollo-upload-client';
 
 const httpLink = createUploadLink({
-  uri: 'https://timetract.herokuapp.com/graphql'
+  uri: 'https://timetractserver-0f09313454.herokuapp.com/server/dev'
 });
 
 const authLink = setContext(async (_, {headers}) => {

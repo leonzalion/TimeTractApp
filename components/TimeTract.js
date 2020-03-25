@@ -23,17 +23,19 @@ const USER_QUERY = gql`
 function TimeTract() {
   const {user, setUser} = useContext(UserContext);
   const [isUserSet, setIsUserSet] = useState(false);
-  useQuery(USER_QUERY, {
+  const {loading, data} = useQuery(USER_QUERY, {
     onCompleted(data) {
       setUser(data.user);
     }
   });
 
   useDidUpdate(() => {
-    setIsUserSet(true);
-  }, [user]);
-
+    if (!loading) {
+      setIsUserSet(true);
+    }
+  }, [loading]);
   if (!isUserSet) return <Loading />;
+
   else return (
     <Stack.Navigator
       initialRouteName={user ? 'Account' : 'Login'}
