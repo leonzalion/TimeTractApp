@@ -12,6 +12,8 @@ TimeTract connects with RescueTime, a trusted time management software used by o
 - Add Reputation (based off rankings at the end of the day)
 - Add Group Tags
 - Add Option to password protect groups
-- Add Notifications (e.g. when someone surpasses you)
 - Add Daily/Weekly/Monthly Leaderboards
+
+### User Updates
 - Add Summaries/Data charts
+- Add Notifications (e.g. when someone surpasses you)
