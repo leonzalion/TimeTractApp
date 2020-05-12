@@ -17,3 +17,5 @@ TimeTract connects with RescueTime, a trusted time management software used by o
 ### User Updates
 - Add Summaries/Data charts
 - Add Notifications (e.g. when someone surpasses you)
+
+**Note:** A rewrite in Flutter is currently underway.
